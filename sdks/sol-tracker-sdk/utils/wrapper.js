@@ -4,7 +4,6 @@ const CONFIG = require('../config');
 module.exports = {
   request: async function (endpoint, method = 'GET', data = null) {
     try {
-      // console.log(CONFIG.SOL_TRACKER_API_KEY);
       const config = {
         method,
         url: `${CONFIG.BASE_URL}${endpoint}`,

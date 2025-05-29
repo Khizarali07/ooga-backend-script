@@ -1,4 +1,4 @@
-const SOL_TRACKER_WRAPPER = require('../utils/wrapper');
+const SOL_TRACKER_WRAPPER = require("../utils/wrapper");
 
 /**
  * Get all tokens in a wallet with current value in USD
@@ -36,12 +36,14 @@ async function getWalletTokensPaginated(owner, page) {
  * @returns {Promise<Object>} Wallet trade history
  */
 async function getWalletTrades(owner, params = {}) {
-  return SOL_TRACKER_WRAPPER.request(`/wallet/${owner}/trades`, 'GET', { params });
+  return SOL_TRACKER_WRAPPER.request(`/wallet/${owner}/trades`, "GET", {
+    params,
+  });
 }
 
 module.exports = {
   getWalletTokens,
   getWalletTokensBasic,
   getWalletTokensPaginated,
-  getWalletTrades
+  getWalletTrades,
 };

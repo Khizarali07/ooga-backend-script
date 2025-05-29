@@ -1,4 +1,4 @@
-const SOL_TRACKER_WRAPPER = require('../utils/wrapper');
+const SOL_TRACKER_WRAPPER = require("../utils/wrapper");
 
 /**
  * @typedef {Object} PnLResponse
@@ -34,9 +34,9 @@ const SOL_TRACKER_WRAPPER = require('../utils/wrapper');
  */
 async function getWalletPnL(wallet, params = {}) {
   if (!wallet) {
-    throw new Error('Wallet address is required');
+    throw new Error("Wallet address is required");
   }
-  return SOL_TRACKER_WRAPPER.request(`/pnl/${wallet}`, 'GET', { params });
+  return SOL_TRACKER_WRAPPER.request(`/pnl/${wallet}`, "GET", { params });
 }
 
 /**
@@ -48,9 +48,11 @@ async function getWalletPnL(wallet, params = {}) {
  */
 async function getTokenPnL(wallet, token, params = {}) {
   if (!wallet || !token) {
-    throw new Error('Wallet address and token address are required');
+    throw new Error("Wallet address and token address are required");
   }
-  return SOL_TRACKER_WRAPPER.request(`/pnl/${wallet}/${token}`, 'GET', { params });
+  return SOL_TRACKER_WRAPPER.request(`/pnl/${wallet}/${token}`, "GET", {
+    params,
+  });
 }
 
 /**
@@ -60,13 +62,13 @@ async function getTokenPnL(wallet, token, params = {}) {
  */
 async function getFirstBuyers(token) {
   if (!token) {
-    throw new Error('Token address is required');
+    throw new Error("Token address is required");
   }
-  return SOL_TRACKER_WRAPPER.request(`/first-buyers/${token}`);
+  return SOL_TRACKER_WRAPPER.request(`/first-buyers/${token}`, "GET");
 }
 
 module.exports = {
   getWalletPnL,
   getTokenPnL,
-  getFirstBuyers
+  getFirstBuyers,
 };
