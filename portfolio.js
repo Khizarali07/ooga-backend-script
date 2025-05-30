@@ -37,7 +37,7 @@ async function getSolTokenPrice(
   }
 }
 
-const getData = async (timeframe = "1M") => {
+const getData = async (timeframe = "1H") => {
   const data = {
     analytics: {
       winRate: 0,
@@ -70,8 +70,9 @@ const getData = async (timeframe = "1M") => {
   let oogaSolValue = 0;
   let oogaUsdValue = 0;
 
-  const walletAddress = "J2MyY1GLnob2QTM7cfpdpp3JxoBwXkopVfiJA9njtmpT";
-  // const walletAddress = "Bm1MhY7sM6VNFcXEfQHkCk4QiRmyMH6kywFZg5jNKLrs";
+  // const walletAddress = "J2MyY1GLnob2QTM7cfpdpp3JxoBwXkopVfiJA9njtmpT";
+  const walletAddress = "Bm1MhY7sM6VNFcXEfQHkCk4QiRmyMH6kywFZg5jNKLrs";
+  // const walletAddress = "C6WUEb3S6oxknA7DGxuPqznaUMt5UEtyAdhoebvmHzQA";
 
   result = await solTrackerSDK.wallet.getWalletTokens(walletAddress);
   if (result.data) {
