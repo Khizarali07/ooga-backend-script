@@ -447,17 +447,6 @@ const getData = async (timeframe = "1M") => {
       data.analytics.totalSellTransactions = totalSellTransactions;
     }
 
-    data.analytics.totalTokenSolBalance = holdingTokens.totalSol;
-    data.analytics.totalTokenUsdBalance = holdingTokens.total;
-    const bestToken = data.activity.sort((a, b) => b.pnl.usd - a.pnl.usd)[0];
-    data.analytics.bestToken = bestToken?.token?.name;
-    data.analytics.bestTokenUsd = bestToken?.pnl?.usd;
-    data.analytics.volumeSol = oogaSolValue;
-    data.analytics.volumeUsd = oogaUsdValue;
-
-    data.analytics.walletSolBalance = 0;
-    data.analytics.walletUsdBalance = 0;
-
     // create chart data from activity, group trades by timeframe, which is either 1H, 1D, 1W, 1M
     // return in format array {date: '10-10-2023', pnl: 123}
 
@@ -504,6 +493,17 @@ const getData = async (timeframe = "1M") => {
     generateChart(data, timeframe);
   }
 
+  data.analytics.totalTokenSolBalance = holdingTokens.totalSol;
+  data.analytics.totalTokenUsdBalance = holdingTokens.total;
+  const bestToken = data.activity.sort((a, b) => b.pnl.usd - a.pnl.usd)[0];
+  data.analytics.bestToken = bestToken?.token?.name;
+  data.analytics.bestTokenUsd = bestToken?.pnl?.usd;
+  data.analytics.volumeSol = oogaSolValue;
+  data.analytics.volumeUsd = oogaUsdValue;
+
+  data.analytics.walletSolBalance = 0;
+  data.analytics.walletUsdBalance = 0;
+
   // data.chart = data.activity.reduce((acc, trade) => {
   //   const date = new Date(trade.age);
   //   const day = date.getDate();
@@ -520,6 +520,8 @@ const getData = async (timeframe = "1M") => {
   //   }
   //   return acc;
   // }, []);
+
+  fs.writeFileSync("portfolio.json", JSON.stringify(data));
 
   console.log(data.chart);
 };
