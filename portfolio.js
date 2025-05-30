@@ -37,7 +37,7 @@ async function getSolTokenPrice(
   }
 }
 
-const getData = async (timeframe = "1H") => {
+const getData = async (timeframe = "1M") => {
   const data = {
     analytics: {
       winRate: 0,
@@ -69,429 +69,440 @@ const getData = async (timeframe = "1H") => {
   let holdingTokens = [];
   let oogaSolValue = 0;
   let oogaUsdValue = 0;
+  // const walletAddress = "Bm1MhY7sM6VNFcXEfQHkCk4QiRmyMH6kywFZg5jNKLrs";
 
-  // const walletAddress = "J2MyY1GLnob2QTM7cfpdpp3JxoBwXkopVfiJA9njtmpT";
-  const walletAddress = "Bm1MhY7sM6VNFcXEfQHkCk4QiRmyMH6kywFZg5jNKLrs";
-  // const walletAddress = "C6WUEb3S6oxknA7DGxuPqznaUMt5UEtyAdhoebvmHzQA";
+  const walletAddresses = [
+    "J2MyY1GLnob2QTM7cfpdpp3JxoBwXkopVfiJA9njtmpT",
+    "C6WUEb3S6oxknA7DGxuPqznaUMt5UEtyAdhoebvmHzQA",
+  ];
 
-  result = await solTrackerSDK.wallet.getWalletTokens(walletAddress);
-  if (result.data) {
-    holdingTokens = result.data;
-  }
+  for (let i = 0; i < walletAddresses.length; i++) {
+    const walletAddress = walletAddresses[i];
 
-  result = await solTrackerSDK.wallet.getWalletTrades(walletAddress);
-  if (result.data) {
-    trades = result.data.trades;
-  }
-
-  result = await solTrackerSDK.pnl.getWalletPnL(walletAddress);
-  if (result.data) {
-    tokenPnls = result.data;
-  }
-
-  let solToUsdValue = 0;
-  let usdToSolValue = 0;
-  result = await getSolTokenPrice();
-  if (result.data) {
-    solToUsdValue = result.data;
-    usdToSolValue = 1 / result.data;
-  }
-  // activity
-  let buyTradescount = 0;
-  let sellTradesCount = 0;
-
-  for (let i = 0; i < trades.length; i++) {
-    const trade = trades[i];
-    const type = trade.from.address === SOL_ADDRESS ? "buy" : "sell";
-    const token = type === "buy" ? trade.to : trade.from;
-    const quoteToken = type === "buy" ? trade.from : trade.to;
-
-    oogaSolValue += trade?.volume.sol;
-    oogaUsdValue += trade?.volume.usd;
-
-    if (type === "buy") {
-      buyTradescount++;
-    } else {
-      sellTradesCount++;
+    result = await solTrackerSDK.wallet.getWalletTokens(walletAddress);
+    if (result.data) {
+      holdingTokens = result.data;
     }
 
-    let pnl = "--";
-    let remaining = token?.amount;
-
-    if (type === "sell") {
-      const buyTrade = trades.find(
-        (t) => t.to.address === token.address && t.from.address === SOL_ADDRESS
-      );
-
-      if (buyTrade) {
-        remaining = buyTrade?.to.amount - token?.amount;
-        pnl = {
-          usd: trade?.volume.usd - buyTrade?.volume.usd,
-          sol: trade?.volume.sol - buyTrade?.volume.sol,
-        };
-      }
+    result = await solTrackerSDK.wallet.getWalletTrades(walletAddress);
+    if (result.data) {
+      trades = result.data.trades;
     }
 
-    // holdings
-    if (type === "buy") {
-      let tokenPnl = tokenPnls.tokens[token.address];
-      if (tokenPnl) {
-        data.holdings.push({
-          token: token.token,
-          invested: {
-            usd: tokenPnl?.total_invested,
-            sol: tokenPnl?.total_invested * usdToSolValue,
-            amount: tokenPnl?.held,
-            txns: tokenPnl?.buy_transactions,
-          },
-          sold: {
-            usd: tokenPnl?.sold_usd,
-            sol: tokenPnl?.sold * usdToSolValue,
-            amount: tokenPnl?.sold,
-            txns: tokenPnl?.sell_transactions,
-          },
-          pnlUsd: tokenPnl?.total,
-          pnlSol: tokenPnl?.total * usdToSolValue,
-          remaining: {
-            amount: tokenPnl?.held - tokenPnl?.sold,
-            usd: (tokenPnl?.held - tokenPnl?.sold) * token?.priceUsd,
-            sol:
-              (tokenPnl?.held - tokenPnl?.sold) *
-              token?.priceUsd *
-              usdToSolValue,
-          },
-        });
-      }
+    result = await solTrackerSDK.pnl.getWalletPnL(walletAddress);
+    if (result.data) {
+      tokenPnls = result.data;
     }
 
-    data.activity.push({
-      age: trade.time,
-      type: type,
-      token: token.token,
-      amount: token?.amount,
-      priceSol: quoteToken?.amount,
-      priceUsd: token?.priceUsd,
-      marketCap: "--",
-      pnl: pnl,
-      remaining: remaining,
-    });
-  }
+    let solToUsdValue = 0;
+    let usdToSolValue = 0;
+    result = await getSolTokenPrice();
+    if (result.data) {
+      solToUsdValue = result.data;
+      usdToSolValue = 1 / result.data;
+    }
+    // activity
+    let buyTradescount = 0;
+    let sellTradesCount = 0;
 
-  // analytics
-  // Get the current time in milliseconds
-  const now = Date.now();
+    for (let i = 0; i < trades.length; i++) {
+      const trade = trades[i];
+      const type = trade.from.address === SOL_ADDRESS ? "buy" : "sell";
+      const token = type === "buy" ? trade.to : trade.from;
+      const quoteToken = type === "buy" ? trade.from : trade.to;
 
-  if (timeframe === "all") {
-    data.analytics.winRate = tokenPnls.summary.winPercentage;
-    data.analytics.performancePercentage =
-      (tokenPnls.summary.total / tokenPnls.total_invested) * 100;
-    data.analytics.performanceSolValue = tokenPnls.summary.total;
-    data.analytics.performanceUsdValue =
-      tokenPnls.summary.total * solToUsdValue;
+      oogaSolValue += trade?.volume.sol;
+      oogaUsdValue += trade?.volume.usd;
 
-    data.analytics.totalTransactions = data.activity.length;
-    data.analytics.totalBuyTransactions = buyTradescount;
-    data.analytics.totalSellTransactions = sellTradesCount;
-  } else if (timeframe === "1H") {
-    // 1 hour in milliseconds
-    const oneHour = 60 * 60 * 1000;
+      if (type === "buy") {
+        buyTradescount++;
+      } else {
+        sellTradesCount++;
+      }
 
-    // Filter tokens whose last_trade_time is within the last hour
-    const recentTokens = Object.entries(tokenPnls.tokens)
-      .filter(([_, token]) => {
-        return now - token.last_trade_time <= oneHour;
-      })
-      .map(([tokenName, tokenData]) => {
-        return {
-          tokenName,
-          ...tokenData,
-        };
-      });
+      let pnl = "--";
+      let remaining = token?.amount;
 
-    const tokenSummary =
-      recentTokens.reduce(
-        (acc, token) => {
-          if (token.total > 0) acc.winCount += 1;
+      if (type === "sell") {
+        const buyTrade = trades.find(
+          (t) =>
+            t.to.address === token.address && t.from.address === SOL_ADDRESS
+        );
 
-          // Safe analytics extraction with fallback
-          const analytics = token.total;
-
-          acc.totalPerformanceSolValue += analytics;
-          acc.totalPerformancePercentage += analytics;
-          acc.totalInvested += token.total_invested;
-
-          return acc;
-        },
-        {
-          winCount: 0,
-          totalPerformanceSolValue: 0,
-          totalPerformancePercentage: 0,
-          totalInvested: 0,
-        }
-      ) || {};
-
-    data.analytics.winRate =
-      (tokenSummary.winCount / recentTokens.length) * 100;
-    data.analytics.performancePercentage =
-      (tokenSummary.totalPerformancePercentage / tokenSummary.totalInvested) *
-      100;
-    data.analytics.performanceSolValue = tokenSummary.totalPerformanceSolValue;
-    data.analytics.performanceUsdValue =
-      tokenSummary.totalPerformanceSolValue * solToUsdValue;
-
-    let totalTransactions = 0;
-    let totalBuyTransactions = 0;
-    let totalSellTransactions = 0;
-    trades.forEach((trade) => {
-      if (now - trade.time <= oneHour) {
-        totalTransactions++;
-        if (trade.from.address === SOL_ADDRESS) {
-          totalBuyTransactions++;
-        } else {
-          totalSellTransactions++;
+        if (buyTrade) {
+          remaining = buyTrade?.to.amount - token?.amount;
+          pnl = {
+            usd: trade?.volume.usd - buyTrade?.volume.usd,
+            sol: trade?.volume.sol - buyTrade?.volume.sol,
+          };
         }
       }
-    });
-    data.analytics.totalTransactions = totalTransactions;
-    data.analytics.totalBuyTransactions = totalBuyTransactions;
-    data.analytics.totalSellTransactions = totalSellTransactions;
-  } else if (timeframe === "1D") {
-    const oneDay = 24 * 60 * 60 * 1000;
-    const recentTokens = Object.entries(tokenPnls.tokens)
-      .filter(([_, token]) => {
-        return now - token.last_trade_time <= oneDay;
-      })
-      .map(([tokenName, tokenData]) => {
-        return {
-          tokenName,
-          ...tokenData,
-        };
-      });
 
-    const tokenSummary =
-      recentTokens.reduce(
-        (acc, token) => {
-          if (token.total > 0) acc.winCount += 1;
-
-          // Safe analytics extraction with fallback
-          const analytics = token.total;
-
-          acc.totalPerformanceSolValue += analytics;
-          acc.totalPerformancePercentage += analytics;
-          acc.totalInvested += token.total_invested;
-
-          return acc;
-        },
-        {
-          winCount: 0,
-          totalPerformanceSolValue: 0,
-          totalPerformancePercentage: 0,
-          totalInvested: 0,
-        }
-      ) || {};
-
-    data.analytics.winRate =
-      (tokenSummary.winCount / recentTokens.length) * 100;
-    data.analytics.performancePercentage =
-      (tokenSummary.totalPerformancePercentage / tokenSummary.totalInvested) *
-      100;
-    data.analytics.performanceSolValue = tokenSummary.totalPerformanceSolValue;
-    data.analytics.performanceUsdValue =
-      tokenSummary.totalPerformanceSolValue * solToUsdValue;
-
-    let totalTransactions = 0;
-    let totalBuyTransactions = 0;
-    let totalSellTransactions = 0;
-    trades.forEach((trade) => {
-      if (now - trade.time <= oneDay) {
-        totalTransactions++;
-        if (trade.from.address === SOL_ADDRESS) {
-          totalBuyTransactions++;
-        } else {
-          totalSellTransactions++;
+      // holdings
+      if (type === "buy") {
+        let tokenPnl = tokenPnls.tokens[token.address];
+        if (tokenPnl) {
+          data.holdings.push({
+            token: token.token,
+            invested: {
+              usd: tokenPnl?.total_invested,
+              sol: tokenPnl?.total_invested * usdToSolValue,
+              amount: tokenPnl?.held,
+              txns: tokenPnl?.buy_transactions,
+            },
+            sold: {
+              usd: tokenPnl?.sold_usd,
+              sol: tokenPnl?.sold * usdToSolValue,
+              amount: tokenPnl?.sold,
+              txns: tokenPnl?.sell_transactions,
+            },
+            pnlUsd: tokenPnl?.total,
+            pnlSol: tokenPnl?.total * usdToSolValue,
+            remaining: {
+              amount: tokenPnl?.held - tokenPnl?.sold,
+              usd: (tokenPnl?.held - tokenPnl?.sold) * token?.priceUsd,
+              sol:
+                (tokenPnl?.held - tokenPnl?.sold) *
+                token?.priceUsd *
+                usdToSolValue,
+            },
+          });
         }
       }
-    });
-    data.analytics.totalTransactions = totalTransactions;
-    data.analytics.totalBuyTransactions = totalBuyTransactions;
-    data.analytics.totalSellTransactions = totalSellTransactions;
-  } else if (timeframe === "1W") {
-    const oneWeek = 7 * 24 * 60 * 60 * 1000;
-    const recentTokens = Object.entries(tokenPnls.tokens)
-      .filter(([_, token]) => {
-        return now - token.last_trade_time <= oneWeek;
-      })
-      .map(([tokenName, tokenData]) => {
-        return {
-          tokenName,
-          ...tokenData,
-        };
+
+      data.activity.push({
+        age: trade.time,
+        type: type,
+        token: token.token,
+        amount: token?.amount,
+        priceSol: quoteToken?.amount,
+        priceUsd: token?.priceUsd,
+        marketCap: "--",
+        pnl: pnl,
+        remaining: remaining,
       });
+    }
 
-    const tokenSummary =
-      recentTokens.reduce(
-        (acc, token) => {
-          if (token.total > 0) acc.winCount += 1;
-
-          // Safe analytics extraction with fallback
-          const analytics = token.total;
-
-          acc.totalPerformanceSolValue += analytics;
-          acc.totalPerformancePercentage += analytics;
-          acc.totalInvested += token.total_invested;
-
-          return acc;
-        },
-        {
-          winCount: 0,
-          totalPerformanceSolValue: 0,
-          totalPerformancePercentage: 0,
-          totalInvested: 0,
-        }
-      ) || {};
-
-    data.analytics.winRate =
-      (tokenSummary.winCount / recentTokens.length) * 100;
-    data.analytics.performancePercentage =
-      (tokenSummary.totalPerformancePercentage / tokenSummary.totalInvested) *
-      100;
-    data.analytics.performanceSolValue = tokenSummary.totalPerformanceSolValue;
-    data.analytics.performanceUsdValue =
-      tokenSummary.totalPerformanceSolValue * solToUsdValue;
-
-    let totalTransactions = 0;
-    let totalBuyTransactions = 0;
-    let totalSellTransactions = 0;
-    trades.forEach((trade) => {
-      if (now - trade.time <= oneWeek) {
-        totalTransactions++;
-        if (trade.from.address === SOL_ADDRESS) {
-          totalBuyTransactions++;
-        } else {
-          totalSellTransactions++;
-        }
-      }
-    });
-    data.analytics.totalTransactions = totalTransactions;
-    data.analytics.totalBuyTransactions = totalBuyTransactions;
-    data.analytics.totalSellTransactions = totalSellTransactions;
-  } else if (timeframe === "1M") {
-    const oneMonth = 30 * 24 * 60 * 60 * 1000;
-    const recentTokens = Object.entries(tokenPnls.tokens)
-      .filter(([_, token]) => {
-        return now - token.last_trade_time <= oneMonth;
-      })
-      .map(([tokenName, tokenData]) => {
-        return {
-          tokenName,
-          ...tokenData,
-        };
-      });
-
-    const tokenSummary =
-      recentTokens.reduce(
-        (acc, token) => {
-          if (token.total > 0) acc.winCount += 1;
-
-          // Safe analytics extraction with fallback
-          const analytics = token.total;
-
-          acc.totalPerformanceSolValue += analytics;
-          acc.totalPerformancePercentage += analytics;
-          acc.totalInvested += token.total_invested;
-
-          return acc;
-        },
-        {
-          winCount: 0,
-          totalPerformanceSolValue: 0,
-          totalPerformancePercentage: 0,
-          totalInvested: 0,
-        }
-      ) || {};
-
-    data.analytics.winRate =
-      (tokenSummary.winCount / recentTokens.length) * 100;
-    data.analytics.performancePercentage =
-      (tokenSummary.totalPerformancePercentage / tokenSummary.totalInvested) *
-      100;
-    data.analytics.performanceSolValue = tokenSummary.totalPerformanceSolValue;
-    data.analytics.performanceUsdValue =
-      tokenSummary.totalPerformanceSolValue * solToUsdValue;
-
-    let totalTransactions = 0;
-    let totalBuyTransactions = 0;
-    let totalSellTransactions = 0;
-    trades.forEach((trade) => {
-      if (now - trade.time <= oneMonth) {
-        totalTransactions++;
-        if (trade.from.address === SOL_ADDRESS) {
-          totalBuyTransactions++;
-        } else {
-          totalSellTransactions++;
-        }
-      }
-    });
-    data.analytics.totalTransactions = totalTransactions;
-    data.analytics.totalBuyTransactions = totalBuyTransactions;
-    data.analytics.totalSellTransactions = totalSellTransactions;
-  }
-
-  data.analytics.totalTokenSolBalance = holdingTokens.totalSol;
-  data.analytics.totalTokenUsdBalance = holdingTokens.total;
-  const bestToken = data.activity.sort((a, b) => b.pnl.usd - a.pnl.usd)[0];
-  data.analytics.bestToken = bestToken?.token?.name;
-  data.analytics.bestTokenUsd = bestToken?.pnl?.usd;
-  data.analytics.volumeSol = oogaSolValue;
-  data.analytics.volumeUsd = oogaUsdValue;
-
-  data.analytics.walletSolBalance = 0;
-  data.analytics.walletUsdBalance = 0;
-
-  // create chart data from activity, group trades by timeframe, which is either 1H, 1D, 1W, 1M
-  // return in format array {date: '10-10-2023', pnl: 123}
-
-  function generateChart(data, timeframe) {
+    // analytics
+    // Get the current time in milliseconds
     const now = Date.now();
 
-    // Convert timeframe into milliseconds
-    const timeframes = {
-      "1H": 1 * 60 * 60 * 1000,
-      "1D": 1 * 24 * 60 * 60 * 1000,
-      "1W": 7 * 24 * 60 * 60 * 1000,
-      "1M": 30 * 24 * 60 * 60 * 1000,
-      all: Infinity,
-    };
+    if (timeframe === "all") {
+      data.analytics.winRate = tokenPnls.summary.winPercentage;
+      data.analytics.performancePercentage =
+        (tokenPnls.summary.total / tokenPnls.total_invested) * 100;
+      data.analytics.performanceSolValue = tokenPnls.summary.total;
+      data.analytics.performanceUsdValue =
+        tokenPnls.summary.total * solToUsdValue;
 
-    const range = timeframes[timeframe] || Infinity;
+      data.analytics.totalTransactions = data.activity.length;
+      data.analytics.totalBuyTransactions = buyTradescount;
+      data.analytics.totalSellTransactions = sellTradesCount;
+    } else if (timeframe === "1H") {
+      // 1 hour in milliseconds
+      const oneHour = 60 * 60 * 1000;
 
-    // Filter trades within the selected timeframe
-    const filteredActivity = data.activity.filter((trade) => {
-      return now - new Date(trade.age).getTime() <= range;
-    });
+      // Filter tokens whose last_trade_time is within the last hour
+      const recentTokens = Object.entries(tokenPnls.tokens)
+        .filter(([_, token]) => {
+          return now - token.last_trade_time <= oneHour;
+        })
+        .map(([tokenName, tokenData]) => {
+          return {
+            tokenName,
+            ...tokenData,
+          };
+        });
 
-    // Aggregate PnL by date
-    data.chart = filteredActivity.reduce((acc, trade) => {
-      const date = new Date(trade.age);
-      const day = date.getDate();
-      const month = date.getMonth() + 1;
-      const year = date.getFullYear();
-      const pnl = trade?.pnl?.usd || 0;
+      const tokenSummary =
+        recentTokens.reduce(
+          (acc, token) => {
+            if (token.total > 0) acc.winCount += 1;
 
-      const formattedDate = `${day}-${month}-${year}`;
-      const existing = acc.find((item) => item.date === formattedDate);
+            // Safe analytics extraction with fallback
+            const analytics = token.total;
 
-      if (existing) {
-        existing.pnl += pnl;
-      } else {
-        acc.push({ date: formattedDate, pnl });
-      }
+            acc.totalPerformanceSolValue += analytics;
+            acc.totalPerformancePercentage += analytics;
+            acc.totalInvested += token.total_invested;
 
-      return acc;
-    }, []);
+            return acc;
+          },
+          {
+            winCount: 0,
+            totalPerformanceSolValue: 0,
+            totalPerformancePercentage: 0,
+            totalInvested: 0,
+          }
+        ) || {};
+
+      data.analytics.winRate =
+        (tokenSummary.winCount / recentTokens.length) * 100;
+      data.analytics.performancePercentage =
+        (tokenSummary.totalPerformancePercentage / tokenSummary.totalInvested) *
+        100;
+      data.analytics.performanceSolValue =
+        tokenSummary.totalPerformanceSolValue;
+      data.analytics.performanceUsdValue =
+        tokenSummary.totalPerformanceSolValue * solToUsdValue;
+
+      let totalTransactions = 0;
+      let totalBuyTransactions = 0;
+      let totalSellTransactions = 0;
+      trades.forEach((trade) => {
+        if (now - trade.time <= oneHour) {
+          totalTransactions++;
+          if (trade.from.address === SOL_ADDRESS) {
+            totalBuyTransactions++;
+          } else {
+            totalSellTransactions++;
+          }
+        }
+      });
+      data.analytics.totalTransactions = totalTransactions;
+      data.analytics.totalBuyTransactions = totalBuyTransactions;
+      data.analytics.totalSellTransactions = totalSellTransactions;
+    } else if (timeframe === "1D") {
+      const oneDay = 24 * 60 * 60 * 1000;
+      const recentTokens = Object.entries(tokenPnls.tokens)
+        .filter(([_, token]) => {
+          return now - token.last_trade_time <= oneDay;
+        })
+        .map(([tokenName, tokenData]) => {
+          return {
+            tokenName,
+            ...tokenData,
+          };
+        });
+
+      const tokenSummary =
+        recentTokens.reduce(
+          (acc, token) => {
+            if (token.total > 0) acc.winCount += 1;
+
+            // Safe analytics extraction with fallback
+            const analytics = token.total;
+
+            acc.totalPerformanceSolValue += analytics;
+            acc.totalPerformancePercentage += analytics;
+            acc.totalInvested += token.total_invested;
+
+            return acc;
+          },
+          {
+            winCount: 0,
+            totalPerformanceSolValue: 0,
+            totalPerformancePercentage: 0,
+            totalInvested: 0,
+          }
+        ) || {};
+
+      data.analytics.winRate =
+        (tokenSummary.winCount / recentTokens.length) * 100;
+      data.analytics.performancePercentage =
+        (tokenSummary.totalPerformancePercentage / tokenSummary.totalInvested) *
+        100;
+      data.analytics.performanceSolValue =
+        tokenSummary.totalPerformanceSolValue;
+      data.analytics.performanceUsdValue =
+        tokenSummary.totalPerformanceSolValue * solToUsdValue;
+
+      let totalTransactions = 0;
+      let totalBuyTransactions = 0;
+      let totalSellTransactions = 0;
+      trades.forEach((trade) => {
+        if (now - trade.time <= oneDay) {
+          totalTransactions++;
+          if (trade.from.address === SOL_ADDRESS) {
+            totalBuyTransactions++;
+          } else {
+            totalSellTransactions++;
+          }
+        }
+      });
+      data.analytics.totalTransactions = totalTransactions;
+      data.analytics.totalBuyTransactions = totalBuyTransactions;
+      data.analytics.totalSellTransactions = totalSellTransactions;
+    } else if (timeframe === "1W") {
+      const oneWeek = 7 * 24 * 60 * 60 * 1000;
+      const recentTokens = Object.entries(tokenPnls.tokens)
+        .filter(([_, token]) => {
+          return now - token.last_trade_time <= oneWeek;
+        })
+        .map(([tokenName, tokenData]) => {
+          return {
+            tokenName,
+            ...tokenData,
+          };
+        });
+
+      const tokenSummary =
+        recentTokens.reduce(
+          (acc, token) => {
+            if (token.total > 0) acc.winCount += 1;
+
+            // Safe analytics extraction with fallback
+            const analytics = token.total;
+
+            acc.totalPerformanceSolValue += analytics;
+            acc.totalPerformancePercentage += analytics;
+            acc.totalInvested += token.total_invested;
+
+            return acc;
+          },
+          {
+            winCount: 0,
+            totalPerformanceSolValue: 0,
+            totalPerformancePercentage: 0,
+            totalInvested: 0,
+          }
+        ) || {};
+
+      data.analytics.winRate =
+        (tokenSummary.winCount / recentTokens.length) * 100;
+      data.analytics.performancePercentage =
+        (tokenSummary.totalPerformancePercentage / tokenSummary.totalInvested) *
+        100;
+      data.analytics.performanceSolValue =
+        tokenSummary.totalPerformanceSolValue;
+      data.analytics.performanceUsdValue =
+        tokenSummary.totalPerformanceSolValue * solToUsdValue;
+
+      let totalTransactions = 0;
+      let totalBuyTransactions = 0;
+      let totalSellTransactions = 0;
+      trades.forEach((trade) => {
+        if (now - trade.time <= oneWeek) {
+          totalTransactions++;
+          if (trade.from.address === SOL_ADDRESS) {
+            totalBuyTransactions++;
+          } else {
+            totalSellTransactions++;
+          }
+        }
+      });
+      data.analytics.totalTransactions = totalTransactions;
+      data.analytics.totalBuyTransactions = totalBuyTransactions;
+      data.analytics.totalSellTransactions = totalSellTransactions;
+    } else if (timeframe === "1M") {
+      const oneMonth = 30 * 24 * 60 * 60 * 1000;
+      const recentTokens = Object.entries(tokenPnls.tokens)
+        .filter(([_, token]) => {
+          return now - token.last_trade_time <= oneMonth;
+        })
+        .map(([tokenName, tokenData]) => {
+          return {
+            tokenName,
+            ...tokenData,
+          };
+        });
+
+      const tokenSummary =
+        recentTokens.reduce(
+          (acc, token) => {
+            if (token.total > 0) acc.winCount += 1;
+
+            // Safe analytics extraction with fallback
+            const analytics = token.total;
+
+            acc.totalPerformanceSolValue += analytics;
+            acc.totalPerformancePercentage += analytics;
+            acc.totalInvested += token.total_invested;
+
+            return acc;
+          },
+          {
+            winCount: 0,
+            totalPerformanceSolValue: 0,
+            totalPerformancePercentage: 0,
+            totalInvested: 0,
+          }
+        ) || {};
+
+      data.analytics.winRate =
+        (tokenSummary.winCount / recentTokens.length) * 100;
+      data.analytics.performancePercentage =
+        (tokenSummary.totalPerformancePercentage / tokenSummary.totalInvested) *
+        100;
+      data.analytics.performanceSolValue =
+        tokenSummary.totalPerformanceSolValue;
+      data.analytics.performanceUsdValue =
+        tokenSummary.totalPerformanceSolValue * solToUsdValue;
+
+      let totalTransactions = 0;
+      let totalBuyTransactions = 0;
+      let totalSellTransactions = 0;
+      trades.forEach((trade) => {
+        if (now - trade.time <= oneMonth) {
+          totalTransactions++;
+          if (trade.from.address === SOL_ADDRESS) {
+            totalBuyTransactions++;
+          } else {
+            totalSellTransactions++;
+          }
+        }
+      });
+      data.analytics.totalTransactions = totalTransactions;
+      data.analytics.totalBuyTransactions = totalBuyTransactions;
+      data.analytics.totalSellTransactions = totalSellTransactions;
+    }
+
+    data.analytics.totalTokenSolBalance = holdingTokens.totalSol;
+    data.analytics.totalTokenUsdBalance = holdingTokens.total;
+    const bestToken = data.activity.sort((a, b) => b.pnl.usd - a.pnl.usd)[0];
+    data.analytics.bestToken = bestToken?.token?.name;
+    data.analytics.bestTokenUsd = bestToken?.pnl?.usd;
+    data.analytics.volumeSol = oogaSolValue;
+    data.analytics.volumeUsd = oogaUsdValue;
+
+    data.analytics.walletSolBalance = 0;
+    data.analytics.walletUsdBalance = 0;
+
+    // create chart data from activity, group trades by timeframe, which is either 1H, 1D, 1W, 1M
+    // return in format array {date: '10-10-2023', pnl: 123}
+
+    function generateChart(data, timeframe) {
+      const now = Date.now();
+
+      // Convert timeframe into milliseconds
+      const timeframes = {
+        "1H": 1 * 60 * 60 * 1000,
+        "1D": 1 * 24 * 60 * 60 * 1000,
+        "1W": 7 * 24 * 60 * 60 * 1000,
+        "1M": 30 * 24 * 60 * 60 * 1000,
+        all: Infinity,
+      };
+
+      const range = timeframes[timeframe] || Infinity;
+
+      // Filter trades within the selected timeframe
+      const filteredActivity = data.activity.filter((trade) => {
+        return now - new Date(trade.age).getTime() <= range;
+      });
+
+      // Aggregate PnL by date
+      data.chart = filteredActivity.reduce((acc, trade) => {
+        const date = new Date(trade.age);
+        const day = date.getDate();
+        const month = date.getMonth() + 1;
+        const year = date.getFullYear();
+        const pnl = trade?.pnl?.usd || 0;
+
+        const formattedDate = `${day}-${month}-${year}`;
+        const existing = acc.find((item) => item.date === formattedDate);
+
+        if (existing) {
+          existing.pnl += pnl;
+        } else {
+          acc.push({ date: formattedDate, pnl });
+        }
+
+        return acc;
+      }, []);
+    }
+
+    generateChart(data, timeframe);
   }
-
-  generateChart(data, timeframe);
 
   // data.chart = data.activity.reduce((acc, trade) => {
   //   const date = new Date(trade.age);
